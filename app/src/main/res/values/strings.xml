@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ReviseKeep</string>
+    <string name="notification_channel_name">Revision Reminders</string>
+    <string name="notification_channel_desc">Compassionate spaced-repetition study reminders</string>
+</resources>

@@ -1,0 +1,6 @@
+{
+  "name": "ReviseKeep",
+  "description": "Bilingual Bengali & English spaced-repetition revision note app with iPhone-inspired frosted glassmorphism, emotional My Why anchoring, and encrypted Gemini AI notifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

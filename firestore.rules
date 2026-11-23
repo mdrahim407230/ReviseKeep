@@ -1,0 +1,228 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserMeta(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 100000 &&
+             data.bestStreak is int && data.bestStreak >= 0 && data.bestStreak <= 100000 &&
+             data.lastRevisionDayKey is string && data.lastRevisionDayKey.size() <= 32 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             (!('aiStylePrompt' in data) || (data.aiStylePrompt is string && data.aiStylePrompt.size() <= 4000)) &&
+             (!('sendFullNoteToAi' in data) || (data.sendFullNoteToAi is bool)) &&
+             (!('encryptedAiKey' in data) || (data.encryptedAiKey is string && data.encryptedAiKey.size() <= 2048)) &&
+             (!('cachedModelId' in data) || (data.cachedModelId is string && data.cachedModelId.size() <= 160)) &&
+             (!('language' in data) || (data.language is string && data.language in ['EN', 'BN']));
+    }
+
+    function isValidWhyProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.studentName is string && data.studentName.size() <= 120 &&
+             data.whyText is string && data.whyText.size() <= 4000 &&
+             data.whoForText is string && data.whoForText.size() <= 1000 &&
+             data.dreamText is string && data.dreamText.size() <= 1000 &&
+             data.clientUpdatedAt is int && data.clientUpdatedAt >= 0;
+    }
+
+    function isValidNote(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.roomId is int && data.roomId > 0 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+             data.subjectTag is string && data.subjectTag.size() <= 120 &&
+             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 20 &&
+             data.pinned is bool &&
+             data.clientCreatedAt is int && data.clientCreatedAt >= 0 &&
+             data.clientUpdatedAt is int && data.clientUpdatedAt >= 0;
+    }
+
+    function isValidEntry(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.roomId is int && data.roomId > 0 &&
+             data.noteRoomId is int && data.noteRoomId > 0 &&
+             data.contentText is string && data.contentText.size() <= 20000 &&
+             data.clientCreatedAt is int && data.clientCreatedAt >= 0;
+    }
+
+    function isValidMilestone(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.roomId is int && data.roomId > 0 &&
+             data.entryRoomId is int && data.entryRoomId > 0 &&
+             data.noteRoomId is int && data.noteRoomId > 0 &&
+             data.stageIndex is int && data.stageIndex >= 0 && data.stageIndex <= 15 &&
+             data.status in ['LOCKED', 'ACTIVE_DUE', 'MISSED', 'COMPLETED'] &&
+             data.unlockedAt is int && data.unlockedAt >= 0 &&
+             data.dueAt is int && data.dueAt >= 0 &&
+             data.missedReminderCount is int && data.missedReminderCount >= 0 && data.missedReminderCount <= 1000 &&
+             (!('completedAt' in data) || (data.completedAt is int && data.completedAt >= 0));
+    }
+
+    function isValidFutureLetter(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.roomId is int && data.roomId > 0 &&
+             data.unlockStreakDays is int && data.unlockStreakDays >= 1 && data.unlockStreakDays <= 3650 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+             data.bodyText is string && data.bodyText.size() >= 1 && data.bodyText.size() <= 10000 &&
+             data.clientCreatedAt is int && data.clientCreatedAt >= 0 &&
+             data.unlocked is bool &&
+             (!('unlockedAt' in data) || (data.unlockedAt is int && data.unlockedAt >= 0));
+    }
+
+    function isValidActivity(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.dayKey is string && data.dayKey.size() >= 1 && data.dayKey.size() <= 32 &&
+             data.completedCount is int && data.completedCount >= 0 && data.completedCount <= 10000;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'currentStreak', 'bestStreak', 'lastRevisionDayKey', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'currentStreak', 'bestStreak', 'lastRevisionDayKey', 'aiStylePrompt', 'sendFullNoteToAi', 'encryptedAiKey', 'cachedModelId', 'language', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserMeta(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) &&
+                       isValidUserMeta(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'currentStreak', 'bestStreak', 'lastRevisionDayKey', 'aiStylePrompt', 'sendFullNoteToAi', 'encryptedAiKey', 'cachedModelId', 'language', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /profile/{profileId} {
+        allow get: if isOwner(userId) && isValidId(profileId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(profileId) &&
+                         incoming().keys().hasAll(['userId', 'studentName', 'whyText', 'whoForText', 'dreamText', 'clientUpdatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'studentName', 'whyText', 'whoForText', 'dreamText', 'clientUpdatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidWhyProfile(incoming());
+        allow update: if isOwner(userId) && isValidId(profileId) &&
+                         isValidWhyProfile(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['studentName', 'whyText', 'whoForText', 'dreamText', 'clientUpdatedAt', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(profileId);
+      }
+
+      match /notes/{noteDocId} {
+        allow get: if isOwner(userId) && isValidId(noteDocId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(noteDocId) &&
+                         incoming().keys().hasAll(['userId', 'roomId', 'title', 'subjectTag', 'colorIndex', 'pinned', 'clientCreatedAt', 'clientUpdatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomId', 'title', 'subjectTag', 'colorIndex', 'pinned', 'clientCreatedAt', 'clientUpdatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidNote(incoming());
+        allow update: if isOwner(userId) && isValidId(noteDocId) &&
+                         isValidNote(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['roomId', 'title', 'subjectTag', 'colorIndex', 'pinned', 'clientCreatedAt', 'clientUpdatedAt', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(noteDocId);
+      }
+
+      match /entries/{entryDocId} {
+        allow get: if isOwner(userId) && isValidId(entryDocId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(entryDocId) &&
+                         incoming().keys().hasAll(['userId', 'roomId', 'noteRoomId', 'contentText', 'clientCreatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomId', 'noteRoomId', 'contentText', 'clientCreatedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidEntry(incoming());
+        allow update: if isOwner(userId) && isValidId(entryDocId) &&
+                         isValidEntry(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['roomId', 'noteRoomId', 'contentText', 'clientCreatedAt', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(entryDocId);
+      }
+
+      match /milestones/{milestoneDocId} {
+        allow get: if isOwner(userId) && isValidId(milestoneDocId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(milestoneDocId) &&
+                         incoming().keys().hasAll(['userId', 'roomId', 'entryRoomId', 'noteRoomId', 'stageIndex', 'status', 'unlockedAt', 'dueAt', 'missedReminderCount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomId', 'entryRoomId', 'noteRoomId', 'stageIndex', 'status', 'unlockedAt', 'dueAt', 'completedAt', 'missedReminderCount', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidMilestone(incoming());
+        allow update: if isOwner(userId) && isValidId(milestoneDocId) &&
+                         isValidMilestone(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['roomId', 'entryRoomId', 'noteRoomId', 'stageIndex', 'status', 'unlockedAt', 'dueAt', 'completedAt', 'missedReminderCount', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(milestoneDocId);
+      }
+
+      match /future_letters/{letterDocId} {
+        allow get: if isOwner(userId) && isValidId(letterDocId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(letterDocId) &&
+                         incoming().keys().hasAll(['userId', 'roomId', 'unlockStreakDays', 'title', 'bodyText', 'clientCreatedAt', 'unlocked', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomId', 'unlockStreakDays', 'title', 'bodyText', 'clientCreatedAt', 'unlocked', 'unlockedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidFutureLetter(incoming());
+        allow update: if isOwner(userId) && isValidId(letterDocId) &&
+                         isValidFutureLetter(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['roomId', 'unlockStreakDays', 'title', 'bodyText', 'clientCreatedAt', 'unlocked', 'unlockedAt', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(letterDocId);
+      }
+
+      match /activities/{dayKey} {
+        allow get: if isOwner(userId) && isValidId(dayKey);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(dayKey) &&
+                         incoming().keys().hasAll(['userId', 'dayKey', 'completedCount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'dayKey', 'completedCount', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidActivity(incoming());
+        allow update: if isOwner(userId) && isValidId(dayKey) &&
+                         isValidActivity(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['dayKey', 'completedCount', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(dayKey);
+      }
+    }
+  }
+}

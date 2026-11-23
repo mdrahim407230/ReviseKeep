@@ -1,0 +1,155 @@
+{
+  "entities": {
+    "UserSyncMeta": {
+      "title": "UserSyncMeta",
+      "description": "Private user account sync metadata and streak counters stored under /users/{userId}.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "Optional Google display name." },
+        "email": { "type": "string", "description": "Optional Google email (owner-private)." },
+        "currentStreak": { "type": "integer", "description": "Current revision streak in days." },
+        "bestStreak": { "type": "integer", "description": "Best recorded revision streak in days." },
+        "lastRevisionDayKey": { "type": "string", "description": "YYYY-MM-DD of the most recent revision completion." },
+        "aiStylePrompt": { "type": "string", "description": "User custom AI notification style instruction." },
+        "sendFullNoteToAi": { "type": "boolean", "description": "Whether full entry text is included in AI prompts." },
+        "encryptedAiKey": { "type": "string", "description": "AES-GCM encrypted BYOK Gemini API key bound to user UID." },
+        "cachedModelId": { "type": "string", "description": "Last verified Gemini model ID." },
+        "language": { "type": "string", "description": "Selected app language code (EN or BN)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "currentStreak", "bestStreak", "lastRevisionDayKey", "createdAt", "updatedAt"]
+    },
+    "WhyProfileSync": {
+      "title": "WhyProfileSync",
+      "description": "User's personal motivation profile synced to Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "whyText": { "type": "string" },
+        "whoForText": { "type": "string" },
+        "dreamText": { "type": "string" },
+        "clientUpdatedAt": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "studentName", "whyText", "whoForText", "dreamText", "clientUpdatedAt", "createdAt", "updatedAt"]
+    },
+    "NoteSync": {
+      "title": "NoteSync",
+      "description": "Subject/general study notebook synced to Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "roomId": { "type": "integer" },
+        "title": { "type": "string" },
+        "subjectTag": { "type": "string" },
+        "colorIndex": { "type": "integer" },
+        "pinned": { "type": "boolean" },
+        "clientCreatedAt": { "type": "integer" },
+        "clientUpdatedAt": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "roomId", "title", "subjectTag", "colorIndex", "pinned", "clientCreatedAt", "clientUpdatedAt", "createdAt", "updatedAt"]
+    },
+    "StudyEntrySync": {
+      "title": "StudyEntrySync",
+      "description": "Daily study entry inside a note synced to Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "roomId": { "type": "integer" },
+        "noteRoomId": { "type": "integer" },
+        "contentText": { "type": "string" },
+        "clientCreatedAt": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "roomId", "noteRoomId", "contentText", "clientCreatedAt", "createdAt", "updatedAt"]
+    },
+    "RevisionMilestoneSync": {
+      "title": "RevisionMilestoneSync",
+      "description": "16-stage spaced repetition milestone synced to Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "roomId": { "type": "integer" },
+        "entryRoomId": { "type": "integer" },
+        "noteRoomId": { "type": "integer" },
+        "stageIndex": { "type": "integer" },
+        "status": { "type": "string", "enum": ["LOCKED", "ACTIVE_DUE", "MISSED", "COMPLETED"] },
+        "unlockedAt": { "type": "integer" },
+        "dueAt": { "type": "integer" },
+        "completedAt": { "type": "integer" },
+        "missedReminderCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "roomId", "entryRoomId", "noteRoomId", "stageIndex", "status", "unlockedAt", "dueAt", "missedReminderCount", "createdAt", "updatedAt"]
+    },
+    "FutureLetterSync": {
+      "title": "FutureLetterSync",
+      "description": "Letter to future self unlocked at streak milestones.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "roomId": { "type": "integer" },
+        "unlockStreakDays": { "type": "integer" },
+        "title": { "type": "string" },
+        "bodyText": { "type": "string" },
+        "clientCreatedAt": { "type": "integer" },
+        "unlocked": { "type": "boolean" },
+        "unlockedAt": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "roomId", "unlockStreakDays", "title", "bodyText", "clientCreatedAt", "unlocked", "createdAt", "updatedAt"]
+    },
+    "RevisionActivitySync": {
+      "title": "RevisionActivitySync",
+      "description": "Daily completed revision count for heatmap & progress screen.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dayKey": { "type": "string" },
+        "completedCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "dayKey", "completedCount", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserSyncMeta" },
+      "description": "Owner-private sync metadata and streak state."
+    },
+    "/users/{userId}/profile/{profileId}": {
+      "schema": { "$ref": "#/entities/WhyProfileSync" },
+      "description": "User's personal My Why motivation profile (doc id: why_profile)."
+    },
+    "/users/{userId}/notes/{noteDocId}": {
+      "schema": { "$ref": "#/entities/NoteSync" },
+      "description": "User's study notes synced to cloud."
+    },
+    "/users/{userId}/entries/{entryDocId}": {
+      "schema": { "$ref": "#/entities/StudyEntrySync" },
+      "description": "Daily study entries synced to cloud."
+    },
+    "/users/{userId}/milestones/{milestoneDocId}": {
+      "schema": { "$ref": "#/entities/RevisionMilestoneSync" },
+      "description": "Spaced-repetition milestones synced to cloud."
+    },
+    "/users/{userId}/future_letters/{letterDocId}": {
+      "schema": { "$ref": "#/entities/FutureLetterSync" },
+      "description": "Future self letters synced to cloud."
+    },
+    "/users/{userId}/activities/{dayKey}": {
+      "schema": { "$ref": "#/entities/RevisionActivitySync" },
+      "description": "Daily revision activity heatmap entries."
+    }
+  }
+}
